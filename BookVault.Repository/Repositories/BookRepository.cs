@@ -73,7 +73,7 @@ namespace BookVault.Repository.Repositories
         }
 
         // ======================== [ ADD BOOK ] ========================
-        public static int AddBook(AddBookModel model, int createdBy)
+        public static (string Result, int NewBookID) AddBook(AddBookModel model, int createdBy)
         {
             try
             {
@@ -92,8 +92,17 @@ namespace BookVault.Repository.Repositories
 
                 conn.Open();
 
-                var result = cmd.ExecuteScalar();
-                return result is not null ? Convert.ToInt32(result) : -1;
+                using var reader = cmd.ExecuteReader();
+                if (reader.Read())
+                {
+                    string result = reader.GetString(reader.GetOrdinal("Result"));
+                    int newBookID = reader.IsDBNull(reader.GetOrdinal("NewBookID"))
+                                        ? -1
+                                        : Convert.ToInt32(reader.GetValue(reader.GetOrdinal("NewBookID")));
+                    return (result, newBookID);
+                }
+
+                return ("UNKNOWN", -1);
             }
             catch (SqlException ex)
             {
@@ -108,7 +117,7 @@ namespace BookVault.Repository.Repositories
         }
 
         // ======================== [ UPDATE BOOK ] ========================
-        public static bool UpdateBook(int bookID, UpdateBookModel model, int updatedBy)
+        public static string UpdateBook(int bookID, UpdateBookModel model, int updatedBy)
         {
             try
             {
@@ -127,7 +136,12 @@ namespace BookVault.Repository.Repositories
                 cmd.Parameters.AddWithValue("@UpdatedBy", updatedBy);
 
                 conn.Open();
-                return cmd.ExecuteNonQuery() > 0;
+
+                using var reader = cmd.ExecuteReader();
+                if (reader.Read())
+                    return reader.GetString(reader.GetOrdinal("Result"));
+
+                return "UNKNOWN";
             }
             catch (SqlException ex)
             {
@@ -142,7 +156,7 @@ namespace BookVault.Repository.Repositories
         }
 
         // ======================== [ DELETE BOOK ] ========================
-        public static bool DeleteBook(int bookID)
+        public static string DeleteBook(int bookID)
         {
             try
             {
@@ -155,7 +169,11 @@ namespace BookVault.Repository.Repositories
                 cmd.Parameters.AddWithValue("@BookID", bookID);
                 conn.Open();
 
-                return cmd.ExecuteNonQuery() > 0;
+                using var reader = cmd.ExecuteReader();
+                if (reader.Read())
+                    return reader.GetString(reader.GetOrdinal("Result"));
+
+                return "UNKNOWN";
             }
             catch (SqlException ex)
             {

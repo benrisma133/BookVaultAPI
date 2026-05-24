@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="BookVault.Presentation/BookVault.Presentation.csproj" />
+  <Project Path="BookVault.Repository/BookVault.Repository.csproj" />
+  <Project Path="BookVault.Service/BookVault.Service.csproj" />
+</Solution>

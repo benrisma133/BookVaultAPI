@@ -13,9 +13,9 @@ namespace BookVault.Service.Services
 
         // ─── Properties ────────────────────────────────────────────────────
         public int ReviewID { get; private set; }
-        public int UserID { get; private set; }
+        public int UserID { get; set; }
         public string UserName { get; private set; } = null!;
-        public int BookID { get; private set; }
+        public int BookID { get; set; }
         public string BookTitle { get; private set; } = null!;
         public byte Rating { get; set; }
         public string? Comment { get; set; }

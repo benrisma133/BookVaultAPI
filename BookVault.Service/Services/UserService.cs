@@ -320,7 +320,7 @@ namespace BookVault.Service.Services
                 if (refreshToken.ExpiresAt < DateTime.UtcNow)
                     return (enRefreshTokenResult.Expired, null);
 
-                return (enRefreshTokenResult.Saved, refreshToken);
+                return (enRefreshTokenResult.Valid, refreshToken);
             }
             catch
             {

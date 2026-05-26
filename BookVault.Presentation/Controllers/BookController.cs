@@ -3,10 +3,12 @@ using BookVault.Presentation.ApiResponses;
 using BookVault.Repository.Models.BookModels;
 using BookVault.Service.Enums.Book;
 using BookVault.Service.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookVault.Presentation.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class BookController : ControllerBase
@@ -16,6 +18,7 @@ namespace BookVault.Presentation.Controllers
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<Book>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<IEnumerable<Book>>> GetAllBooks()
         {
             var (result, books) = BookService.GetAll();
@@ -38,6 +41,7 @@ namespace BookVault.Presentation.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<Book>> GetBookByID(int id)
         {
             if (id <= 0)
@@ -74,6 +78,7 @@ namespace BookVault.Presentation.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<Book>> AddBook([FromBody] AddBookModel model)
         {
             if (model is null)
@@ -118,6 +123,7 @@ namespace BookVault.Presentation.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<object>> UpdateBook(int id, [FromBody] UpdateBookModel model)
         {
             if (id <= 0)
@@ -169,6 +175,7 @@ namespace BookVault.Presentation.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<object>> DeleteBook(int id)
         {
             if (id <= 0)

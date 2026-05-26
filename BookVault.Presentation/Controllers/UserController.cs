@@ -3,10 +3,12 @@ using BookVault.Presentation.ApiResponses;
 using BookVault.Repository.Models.UserModels;
 using BookVault.Service.Enums.User;
 using BookVault.Service.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookVault.Presentation.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class UserController : ControllerBase
@@ -16,6 +18,7 @@ namespace BookVault.Presentation.Controllers
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<User>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<IEnumerable<User>>> GetAllUsers()
         {
             var (result, users) = UserService.GetAll();
@@ -35,6 +38,7 @@ namespace BookVault.Presentation.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<User>> GetUserByID(int id)
         {
             if (id <= 0)
@@ -65,6 +69,7 @@ namespace BookVault.Presentation.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<object>> UpdateUser(int id, [FromBody] UpdateUserModel model)
         {
             if (id <= 0)
@@ -100,6 +105,7 @@ namespace BookVault.Presentation.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<object>> UpdateEmail(int id, [FromBody] UpdateEmailModel model)
         {
             if (id <= 0)
@@ -133,6 +139,7 @@ namespace BookVault.Presentation.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<object>> UpdatePassword(int id, [FromBody] UpdatePasswordModel model)
         {
             if (id <= 0)
@@ -176,6 +183,7 @@ namespace BookVault.Presentation.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<object>> PromoteToAdmin(int id)
         {
             if (id <= 0)
@@ -199,6 +207,7 @@ namespace BookVault.Presentation.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<object>> DemoteToMember(int id)
         {
             if (id <= 0)
@@ -225,6 +234,7 @@ namespace BookVault.Presentation.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<object>> UpdatePermissions(int id, [FromBody] UpdatePermissionsModel model)
         {
             if (id <= 0)
@@ -249,6 +259,7 @@ namespace BookVault.Presentation.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<object>> DeleteUser(int id)
         {
             if (id <= 0)

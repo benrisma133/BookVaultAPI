@@ -3,10 +3,12 @@ using BookVault.Presentation.ApiResponses;
 using BookVault.Repository.Models.BorrowModels;
 using BookVault.Service.Enums.Borrow;
 using BookVault.Service.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookVault.Presentation.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class BorrowController : ControllerBase
@@ -16,6 +18,7 @@ namespace BookVault.Presentation.Controllers
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<Borrow>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<IEnumerable<Borrow>>> GetAllBorrows()
         {
             var (result, borrows) = BorrowService.GetAll();
@@ -37,6 +40,7 @@ namespace BookVault.Presentation.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<Borrow>> GetBorrowByID(int id)
         {
             if (id <= 0)
@@ -70,6 +74,7 @@ namespace BookVault.Presentation.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<IEnumerable<Borrow>>> GetMyBorrows(int userID)
         {
             if (userID <= 0)
@@ -91,6 +96,7 @@ namespace BookVault.Presentation.Controllers
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<Borrow>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<IEnumerable<Borrow>>> GetActiveBorrows()
         {
             var (result, borrows) = BorrowService.GetActiveBorrows();
@@ -109,6 +115,7 @@ namespace BookVault.Presentation.Controllers
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<Borrow>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<IEnumerable<Borrow>>> GetOverdueBorrows()
         {
             var (result, borrows) = BorrowService.GetOverdueBorrows();
@@ -129,6 +136,7 @@ namespace BookVault.Presentation.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<object>> CreateBorrow([FromBody] CreateBorrowModel model)
         {
             if (model is null)
@@ -168,6 +176,7 @@ namespace BookVault.Presentation.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<object>> ReturnBorrow(int id)
         {
             if (id <= 0)

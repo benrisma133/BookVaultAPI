@@ -1,10 +1,12 @@
 ﻿// BookVault.Presentation/Controllers/BorrowController.cs
 using BookVault.Presentation.ApiResponses;
+using BookVault.Presentation.Requests.Borrow;
 using BookVault.Repository.Models.BorrowModels;
 using BookVault.Service.Enums.Borrow;
 using BookVault.Service.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace BookVault.Presentation.Controllers
 {
@@ -14,6 +16,7 @@ namespace BookVault.Presentation.Controllers
     public class BorrowController : ControllerBase
     {
         // ====================== [ GET ALL BORROWS ] ======================
+        [Authorize(Roles = "Admin")]
         [HttpGet("AllBorrows")]
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<Borrow>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -35,6 +38,7 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ GET BORROW BY ID ] ======================
+        [Authorize(Roles = "Admin")]
         [HttpGet("GetBorrow/{id}", Name = "GetBorrowByID")]
         [ProducesResponseType(typeof(ApiResponse<Borrow>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -69,6 +73,7 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ GET MY BORROWS ] ======================
+        [Authorize(Roles = "Admin,Member")]
         [HttpGet("MyBorrows/{userID}")]
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<Borrow>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -92,6 +97,7 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ GET ACTIVE BORROWS ] ======================
+        [Authorize(Roles = "Admin")]
         [HttpGet("ActiveBorrows")]
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<Borrow>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -111,6 +117,7 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ GET OVERDUE BORROWS ] ======================
+        [Authorize(Roles = "Admin")]
         [HttpGet("OverdueBorrows")]
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<Borrow>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -130,6 +137,7 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ CREATE BORROW ] ======================
+        [Authorize(Roles = "Admin,Member")]
         [HttpPost("Borrow")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -137,22 +145,31 @@ namespace BookVault.Presentation.Controllers
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public ActionResult<ApiResponse<object>> CreateBorrow([FromBody] CreateBorrowModel model)
+        public ActionResult<ApiResponse<object>> CreateBorrow([FromBody] CreateBorrowRequest request)
         {
-            if (model is null)
+            if (request is null)
                 return BadRequest("Invalid borrow data.");
 
-            if (model.UserID <= 0)
-                return BadRequest("Invalid user ID.");
+            //if (model.UserID <= 0)
+            //    return BadRequest("Invalid user ID.");
 
-            if (model.BookID <= 0)
+            if (request.BookID <= 0)
                 return BadRequest("Invalid book ID.");
 
-            if (model.DueDate <= DateTime.UtcNow)
+            if (request.DueDate <= DateTime.UtcNow)
                 return BadRequest("Due date must be in the future.");
 
-            // TODO: replace with logged-in user ID after JWT is added
-            int callerUserID = 1;
+            var claimUserID = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!int.TryParse(claimUserID, out int callerUserID))
+                return Unauthorized("Invalid token.");
+
+            var model = new CreateBorrowModel
+            {
+                UserID = callerUserID,
+                BookID = request.BookID,
+                DueDate = request.DueDate,
+            };
 
             var (result, newBorrowID) = BorrowService.Create(model, callerUserID);
 
@@ -170,6 +187,7 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ RETURN BORROW ] ======================
+        [Authorize(Roles = "Admin,Member")]
         [HttpPut("Return/{id}")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]

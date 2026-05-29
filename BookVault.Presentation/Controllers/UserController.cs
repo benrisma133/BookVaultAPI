@@ -5,6 +5,7 @@ using BookVault.Service.Enums.User;
 using BookVault.Service.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace BookVault.Presentation.Controllers
 {
@@ -14,6 +15,7 @@ namespace BookVault.Presentation.Controllers
     public class UserController : ControllerBase
     {
         // ====================== [ GET ALL USERS ] ======================
+        [Authorize(Roles = "Admin")]
         [HttpGet("AllUsers")]
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<User>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -33,6 +35,7 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ GET USER BY ID ] ======================
+        [Authorize(Roles = "Admin,Member")]
         [HttpGet("GetUser/{id}", Name = "GetUserByID")]
         [ProducesResponseType(typeof(ApiResponse<User>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -64,6 +67,7 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ UPDATE USER ] ======================
+        [Authorize(Roles = "Admin,Member")]
         [HttpPut("UpdateUser/{id}")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -99,6 +103,7 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ UPDATE EMAIL ] ======================
+        [Authorize(Roles = "Admin,Member")]
         [HttpPatch("UpdateEmail/{id}")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -134,6 +139,7 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ UPDATE PASSWORD ] ======================
+        [Authorize(Roles = "Admin,Member")]
         [HttpPatch("UpdatePassword/{id}")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -177,6 +183,7 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ PROMOTE TO ADMIN ] ======================
+        [Authorize(Roles = "Admin")]
         [HttpPatch("Promote/{id}")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -201,6 +208,7 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ DEMOTE TO MEMBER ] ======================
+        [Authorize(Roles = "Admin")]
         [HttpPatch("Demote/{id}")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -213,8 +221,10 @@ namespace BookVault.Presentation.Controllers
             if (id <= 0)
                 return BadRequest("Invalid user ID.");
 
-            // TODO: replace with logged-in user ID after JWT is added
-            int callerUserID = 1;
+            var claimUserID = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!int.TryParse(claimUserID, out int callerUserID))
+                return Unauthorized("Invalid token.");
 
             enUserRoleResult result = UserService.DemoteToMember(id, callerUserID);
 
@@ -229,6 +239,7 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ UPDATE PERMISSIONS ] ======================
+        [Authorize(Roles = "Admin")]
         [HttpPatch("UpdatePermissions/{id}")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -254,6 +265,7 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ DELETE USER ] ======================
+        [Authorize(Roles = "Admin")]
         [HttpDelete("DeleteUser/{id}")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -265,8 +277,10 @@ namespace BookVault.Presentation.Controllers
             if (id <= 0)
                 return BadRequest("Invalid user ID.");
 
-            // TODO: replace with logged-in user ID after JWT is added
-            int callerUserID = 1;
+            var claimUserID = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!int.TryParse(claimUserID, out int callerUserID))
+                return Unauthorized("Invalid token.");
 
             enUserDeleteResult result = UserService.Delete(id, callerUserID);
 

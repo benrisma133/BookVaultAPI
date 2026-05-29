@@ -1,10 +1,12 @@
 ﻿// BookVault.Presentation/Controllers/ReviewController.cs
 using BookVault.Presentation.ApiResponses;
+using BookVault.Presentation.Requests.Review;
 using BookVault.Repository.Models.ReviewModels;
 using BookVault.Service.Enums.Review;
 using BookVault.Service.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace BookVault.Presentation.Controllers
 {
@@ -14,6 +16,7 @@ namespace BookVault.Presentation.Controllers
     public class ReviewController : ControllerBase
     {
         // ====================== [ GET REVIEW BY ID ] ======================
+        [AllowAnonymous]
         [HttpGet("GetReview/{id}", Name = "GetReviewByID")]
         [ProducesResponseType(typeof(ApiResponse<Review>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -49,6 +52,7 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ GET REVIEWS BY BOOK ID ] ======================
+        [AllowAnonymous]
         [HttpGet("BookReviews/{bookID}")]
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<Review>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -72,6 +76,7 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ GET MY REVIEWS ] ======================
+        [Authorize(Roles = "Admin,Member")]
         [HttpGet("MyReviews/{userID}")]
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<Review>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -95,6 +100,7 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ CREATE REVIEW ] ======================
+        [Authorize(Roles = "Admin,Member")]
         [HttpPost("AddReview")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -102,29 +108,28 @@ namespace BookVault.Presentation.Controllers
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public ActionResult<ApiResponse<object>> CreateReview([FromBody] CreateReviewModel model)
+        public ActionResult<ApiResponse<object>> CreateReview([FromBody] CreateReviewRequest request)
         {
-            if (model is null)
+            if (request is null)
                 return BadRequest("Invalid review data.");
 
-            if (model.UserID <= 0)
-                return BadRequest("Invalid user ID.");
-
-            if (model.BookID <= 0)
+            if (request.BookID <= 0)
                 return BadRequest("Invalid book ID.");
 
-            if (model.Rating < 1 || model.Rating > 5)
+            if (request.Rating < 1 || request.Rating > 5)
                 return BadRequest("Rating must be between 1 and 5.");
 
-            // TODO: replace with logged-in user ID after JWT is added
-            int callerUserID = 1;
+            var claimUserID = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!int.TryParse(claimUserID, out int callerUserID))
+                return Unauthorized("Invalid token.");
 
             var service = new ReviewService
             {
-                UserID = model.UserID,
-                BookID = model.BookID,
-                Rating = model.Rating,
-                Comment = model.Comment
+                UserID = callerUserID,
+                BookID = request.BookID,
+                Rating = request.Rating,
+                Comment = request.Comment
             };
 
             enReviewSaveResult result = service.Save(callerUserID);
@@ -134,8 +139,8 @@ namespace BookVault.Presentation.Controllers
                 enReviewSaveResult.Saved => CreatedAtRoute("GetReviewByID",
                                                         new { id = service.ReviewID },
                                                         new ApiResponse<object>("Review created successfully.", new { service.ReviewID })),
-                enReviewSaveResult.BookNotFound => NotFound($"No book found with ID {model.BookID}."),
-                enReviewSaveResult.UserNotFound => NotFound($"No user found with ID {model.UserID}."),
+                enReviewSaveResult.BookNotFound => NotFound($"No book found with ID {request.BookID}."),
+                enReviewSaveResult.UserNotFound => NotFound($"No user found with ID {callerUserID}."),
                 enReviewSaveResult.NotBorrowed => Conflict("You can only review a book you have borrowed and returned."),
                 enReviewSaveResult.AlreadyReviewed => Conflict("You have already reviewed this book."),
                 _ => StatusCode(500, "Something went wrong.")
@@ -143,21 +148,22 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ UPDATE REVIEW ] ======================
+        [Authorize(Roles = "Admin,Member")]
         [HttpPut("UpdateReview/{id}")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public ActionResult<ApiResponse<object>> UpdateReview(int id, [FromBody] UpdateReviewModel model)
+        public ActionResult<ApiResponse<object>> UpdateReview(int id, [FromBody] UpdateReviewRequest request)
         {
             if (id <= 0)
                 return BadRequest("Invalid review ID.");
 
-            if (model is null)
+            if (request is null)
                 return BadRequest("Invalid review data.");
 
-            if (model.Rating < 1 || model.Rating > 5)
+            if (request.Rating < 1 || request.Rating > 5)
                 return BadRequest("Rating must be between 1 and 5.");
 
             var (findResult, service) = ReviewService.Find(id);
@@ -168,11 +174,13 @@ namespace BookVault.Presentation.Controllers
             if (findResult == enReviewRetrieveResult.Failed)
                 return StatusCode(500, "Something went wrong.");
 
-            // TODO: replace with logged-in user ID after JWT is added
-            int callerUserID = 1;
+            var claimUserID = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            service!.Rating = model.Rating;
-            service.Comment = model.Comment;
+            if (!int.TryParse(claimUserID, out int callerUserID))
+                return Unauthorized("Invalid token.");
+
+            service!.Rating = request.Rating;
+            service.Comment = request.Comment;
 
             enReviewSaveResult result = service.Save(callerUserID);
 
@@ -185,6 +193,7 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ DELETE REVIEW ] ======================
+        [Authorize(Roles = "Admin,Member")]
         [HttpDelete("DeleteReview/{id}")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]

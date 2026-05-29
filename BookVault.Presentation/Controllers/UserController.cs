@@ -3,19 +3,33 @@ using BookVault.Presentation.ApiResponses;
 using BookVault.Repository.Models.UserModels;
 using BookVault.Service.Enums.User;
 using BookVault.Service.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace BookVault.Presentation.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class UserController : ControllerBase
     {
+        // add to constructor
+        private readonly IAuthorizationService _authorizationService;
+
+        public UserController(IAuthorizationService authorizationService)
+        {
+            _authorizationService = authorizationService;
+        }
+
+
         // ====================== [ GET ALL USERS ] ======================
+        [Authorize(Roles = "Admin")]
         [HttpGet("AllUsers")]
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<User>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<IEnumerable<User>>> GetAllUsers()
         {
             var (result, users) = UserService.GetAll();
@@ -30,15 +44,23 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ GET USER BY ID ] ======================
+        [Authorize(Roles = "Admin,Member")]
         [HttpGet("GetUser/{id}", Name = "GetUserByID")]
         [ProducesResponseType(typeof(ApiResponse<User>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public ActionResult<ApiResponse<User>> GetUserByID(int id)
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<ActionResult<ApiResponse<User>>> GetUserByID(int id)
         {
             if (id <= 0)
                 return BadRequest("Invalid user ID.");
+
+            // Ownership check — userID is already in the route, pass it directly
+            var authResult = await _authorizationService.AuthorizeAsync(User, id, "OwnerOrAdmin");
+
+            if (!authResult.Succeeded)
+                return Forbid();
 
             var (result, service) = UserService.Find(id);
 
@@ -60,18 +82,26 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ UPDATE USER ] ======================
+        [Authorize(Roles = "Admin,Member")]
         [HttpPut("UpdateUser/{id}")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public ActionResult<ApiResponse<object>> UpdateUser(int id, [FromBody] UpdateUserModel model)
+        public async Task<ActionResult<ApiResponse<object>>> UpdateUser(int id, [FromBody] UpdateUserModel model)
         {
             if (id <= 0)
                 return BadRequest("Invalid user ID.");
 
             if (model is null || string.IsNullOrWhiteSpace(model.Name))
                 return BadRequest("Name is required.");
+
+            var authResult = await _authorizationService.AuthorizeAsync(User, id, "OwnerOrAdmin");
+
+            if (!authResult.Succeeded)
+                return Forbid();
 
             var (findResult, service) = UserService.Find(id);
 
@@ -94,19 +124,27 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ UPDATE EMAIL ] ======================
+        [Authorize(Roles = "Admin,Member")]
         [HttpPatch("UpdateEmail/{id}")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public ActionResult<ApiResponse<object>> UpdateEmail(int id, [FromBody] UpdateEmailModel model)
+        public async Task<ActionResult<ApiResponse<object>>> UpdateEmail(int id, [FromBody] UpdateEmailModel model)
         {
             if (id <= 0)
                 return BadRequest("Invalid user ID.");
 
             if (model is null || string.IsNullOrWhiteSpace(model.NewEmail))
                 return BadRequest("New email is required.");
+
+            var authResult = await _authorizationService.AuthorizeAsync(User, id, "OwnerOrAdmin");
+
+            if (!authResult.Succeeded)
+                return Forbid();
 
             var (findResult, service) = UserService.Find(id);
 
@@ -128,15 +166,19 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ UPDATE PASSWORD ] ======================
-        [HttpPatch("UpdatePassword/{id}")]
+        [Authorize]
+        [HttpPatch("UpdatePassword")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public ActionResult<ApiResponse<object>> UpdatePassword(int id, [FromBody] UpdatePasswordModel model)
+        public ActionResult<ApiResponse<object>> UpdatePassword([FromBody] UpdatePasswordModel model)
         {
-            if (id <= 0)
-                return BadRequest("Invalid user ID.");
+            var claimUserID = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!int.TryParse(claimUserID, out int userID))
+                return Unauthorized("Invalid token.");
 
             if (model is null)
                 return BadRequest("Invalid data.");
@@ -150,10 +192,10 @@ namespace BookVault.Presentation.Controllers
             if (model.CurrentPassword == model.NewPassword)
                 return BadRequest("New password must be different from current password.");
 
-            var (findResult, service) = UserService.Find(id);
+            var (findResult, service) = UserService.Find(userID);
 
             if (findResult == enUserRetrieveResult.NotFound)
-                return NotFound($"No user found with ID {id}.");
+                return NotFound($"No user found with ID {userID}.");
 
             if (findResult == enUserRetrieveResult.Failed)
                 return StatusCode(500, "Something went wrong.");
@@ -162,20 +204,22 @@ namespace BookVault.Presentation.Controllers
 
             return result switch
             {
-                enUserPasswordResult.Updated => Ok(new ApiResponse<object>("Password updated successfully.", new { id })),
+                enUserPasswordResult.Updated => Ok(new ApiResponse<object>("Password updated successfully.", new { userID })),
                 enUserPasswordResult.InvalidCurrentPassword => BadRequest("Current password is incorrect."),
-                enUserPasswordResult.NotFound => NotFound($"No user found with ID {id}."),
+                enUserPasswordResult.NotFound => NotFound($"No user found with ID {userID}."),
                 _ => StatusCode(500, "Something went wrong.")
             };
         }
 
         // ====================== [ PROMOTE TO ADMIN ] ======================
+        [Authorize(Roles = "Admin")]
         [HttpPatch("Promote/{id}")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<object>> PromoteToAdmin(int id)
         {
             if (id <= 0)
@@ -193,19 +237,23 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ DEMOTE TO MEMBER ] ======================
+        [Authorize(Roles = "Admin")]
         [HttpPatch("Demote/{id}")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<object>> DemoteToMember(int id)
         {
             if (id <= 0)
                 return BadRequest("Invalid user ID.");
 
-            // TODO: replace with logged-in user ID after JWT is added
-            int callerUserID = 1;
+            var claimUserID = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!int.TryParse(claimUserID, out int callerUserID))
+                return Unauthorized("Invalid token.");
 
             enUserRoleResult result = UserService.DemoteToMember(id, callerUserID);
 
@@ -220,11 +268,13 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ UPDATE PERMISSIONS ] ======================
+        [Authorize(Roles = "Admin")]
         [HttpPatch("UpdatePermissions/{id}")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<object>> UpdatePermissions(int id, [FromBody] UpdatePermissionsModel model)
         {
             if (id <= 0)
@@ -244,18 +294,22 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ DELETE USER ] ======================
+        [Authorize(Roles = "Admin")]
         [HttpDelete("DeleteUser/{id}")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<object>> DeleteUser(int id)
         {
             if (id <= 0)
                 return BadRequest("Invalid user ID.");
 
-            // TODO: replace with logged-in user ID after JWT is added
-            int callerUserID = 1;
+            var claimUserID = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!int.TryParse(claimUserID, out int callerUserID))
+                return Unauthorized("Invalid token.");
 
             enUserDeleteResult result = UserService.Delete(id, callerUserID);
 

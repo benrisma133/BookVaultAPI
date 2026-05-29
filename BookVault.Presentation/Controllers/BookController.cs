@@ -3,19 +3,24 @@ using BookVault.Presentation.ApiResponses;
 using BookVault.Repository.Models.BookModels;
 using BookVault.Service.Enums.Book;
 using BookVault.Service.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace BookVault.Presentation.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class BookController : ControllerBase
     {
         // ====================== [ GET ALL BOOKS ] ======================
+        [AllowAnonymous]
         [HttpGet("AllBooks")]
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<Book>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<IEnumerable<Book>>> GetAllBooks()
         {
             var (result, books) = BookService.GetAll();
@@ -33,11 +38,13 @@ namespace BookVault.Presentation.Controllers
 
 
         // ====================== [ GET BOOK BY ID ] ======================
+        [AllowAnonymous]
         [HttpGet("GetBook/{id}", Name = "GetBookByID")]
         [ProducesResponseType(typeof(ApiResponse<Book>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<Book>> GetBookByID(int id)
         {
             if (id <= 0)
@@ -69,11 +76,13 @@ namespace BookVault.Presentation.Controllers
 
 
         // ====================== [ ADD BOOK ] ======================
+        [Authorize(Roles = "Admin")]
         [HttpPost("AddBook")]
         [ProducesResponseType(typeof(ApiResponse<Book>), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<Book>> AddBook([FromBody] AddBookModel model)
         {
             if (model is null)
@@ -85,8 +94,10 @@ namespace BookVault.Presentation.Controllers
                 model.TotalStock <= 0)
                 return BadRequest("Title, Author, Genre and TotalStock are required.");
 
-            // TODO: replace 1 with the logged-in user ID after JWT is added
-            int callerUserID = 1;
+            var claimUserID = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!int.TryParse(claimUserID, out int callerUserID))
+                return Unauthorized("Invalid token.");
 
             var service = new BookService
             {
@@ -112,12 +123,14 @@ namespace BookVault.Presentation.Controllers
 
 
         // ====================== [ UPDATE BOOK ] ======================
+        [Authorize(Roles = "Admin")]
         [HttpPut("UpdateBook/{id}")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<object>> UpdateBook(int id, [FromBody] UpdateBookModel model)
         {
             if (id <= 0)
@@ -140,8 +153,11 @@ namespace BookVault.Presentation.Controllers
             if (findResult == enBookRetrieveResult.Failed)
                 return StatusCode(500, "Something went wrong.");
 
-            // TODO: replace 1 with the logged-in user ID after JWT is added
-            int callerUserID = 1;
+
+            var claimUserID = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!int.TryParse(claimUserID, out int callerUserID))
+                return Unauthorized("Invalid token.");
 
             service!.Title = model.Title;
             service.Author = model.Author;
@@ -163,12 +179,14 @@ namespace BookVault.Presentation.Controllers
 
 
         // ====================== [ DELETE BOOK ] ======================
+        [Authorize(Roles = "Admin")]
         [HttpDelete("DeleteBook/{id}")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<ApiResponse<object>> DeleteBook(int id)
         {
             if (id <= 0)

@@ -14,6 +14,15 @@ namespace BookVault.Presentation.Controllers
     [ApiController]
     public class UserController : ControllerBase
     {
+        // add to constructor
+        private readonly IAuthorizationService _authorizationService;
+
+        public UserController(IAuthorizationService authorizationService)
+        {
+            _authorizationService = authorizationService;
+        }
+
+
         // ====================== [ GET ALL USERS ] ======================
         [Authorize(Roles = "Admin")]
         [HttpGet("AllUsers")]
@@ -42,10 +51,16 @@ namespace BookVault.Presentation.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public ActionResult<ApiResponse<User>> GetUserByID(int id)
+        public async Task<ActionResult<ApiResponse<User>>> GetUserByID(int id)
         {
             if (id <= 0)
                 return BadRequest("Invalid user ID.");
+
+            // Ownership check — userID is already in the route, pass it directly
+            var authResult = await _authorizationService.AuthorizeAsync(User, id, "OwnerOrAdmin");
+
+            if (!authResult.Succeeded)
+                return Forbid();
 
             var (result, service) = UserService.Find(id);
 
@@ -71,16 +86,22 @@ namespace BookVault.Presentation.Controllers
         [HttpPut("UpdateUser/{id}")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public ActionResult<ApiResponse<object>> UpdateUser(int id, [FromBody] UpdateUserModel model)
+        public async Task<ActionResult<ApiResponse<object>>> UpdateUser(int id, [FromBody] UpdateUserModel model)
         {
             if (id <= 0)
                 return BadRequest("Invalid user ID.");
 
             if (model is null || string.IsNullOrWhiteSpace(model.Name))
                 return BadRequest("Name is required.");
+
+            var authResult = await _authorizationService.AuthorizeAsync(User, id, "OwnerOrAdmin");
+
+            if (!authResult.Succeeded)
+                return Forbid();
 
             var (findResult, service) = UserService.Find(id);
 
@@ -107,17 +128,23 @@ namespace BookVault.Presentation.Controllers
         [HttpPatch("UpdateEmail/{id}")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public ActionResult<ApiResponse<object>> UpdateEmail(int id, [FromBody] UpdateEmailModel model)
+        public async Task<ActionResult<ApiResponse<object>>> UpdateEmail(int id, [FromBody] UpdateEmailModel model)
         {
             if (id <= 0)
                 return BadRequest("Invalid user ID.");
 
             if (model is null || string.IsNullOrWhiteSpace(model.NewEmail))
                 return BadRequest("New email is required.");
+
+            var authResult = await _authorizationService.AuthorizeAsync(User, id, "OwnerOrAdmin");
+
+            if (!authResult.Succeeded)
+                return Forbid();
 
             var (findResult, service) = UserService.Find(id);
 
@@ -139,17 +166,19 @@ namespace BookVault.Presentation.Controllers
         }
 
         // ====================== [ UPDATE PASSWORD ] ======================
-        [Authorize(Roles = "Admin,Member")]
-        [HttpPatch("UpdatePassword/{id}")]
+        [Authorize]
+        [HttpPatch("UpdatePassword")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public ActionResult<ApiResponse<object>> UpdatePassword(int id, [FromBody] UpdatePasswordModel model)
+        public ActionResult<ApiResponse<object>> UpdatePassword([FromBody] UpdatePasswordModel model)
         {
-            if (id <= 0)
-                return BadRequest("Invalid user ID.");
+            var claimUserID = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!int.TryParse(claimUserID, out int userID))
+                return Unauthorized("Invalid token.");
 
             if (model is null)
                 return BadRequest("Invalid data.");
@@ -163,10 +192,10 @@ namespace BookVault.Presentation.Controllers
             if (model.CurrentPassword == model.NewPassword)
                 return BadRequest("New password must be different from current password.");
 
-            var (findResult, service) = UserService.Find(id);
+            var (findResult, service) = UserService.Find(userID);
 
             if (findResult == enUserRetrieveResult.NotFound)
-                return NotFound($"No user found with ID {id}.");
+                return NotFound($"No user found with ID {userID}.");
 
             if (findResult == enUserRetrieveResult.Failed)
                 return StatusCode(500, "Something went wrong.");
@@ -175,9 +204,9 @@ namespace BookVault.Presentation.Controllers
 
             return result switch
             {
-                enUserPasswordResult.Updated => Ok(new ApiResponse<object>("Password updated successfully.", new { id })),
+                enUserPasswordResult.Updated => Ok(new ApiResponse<object>("Password updated successfully.", new { userID })),
                 enUserPasswordResult.InvalidCurrentPassword => BadRequest("Current password is incorrect."),
-                enUserPasswordResult.NotFound => NotFound($"No user found with ID {id}."),
+                enUserPasswordResult.NotFound => NotFound($"No user found with ID {userID}."),
                 _ => StatusCode(500, "Something went wrong.")
             };
         }

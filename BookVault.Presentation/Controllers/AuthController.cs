@@ -54,7 +54,7 @@ namespace BookVault.Presentation.Controllers
                 new Claim(ClaimTypes.NameIdentifier, service!.UserID.ToString()),
                 new Claim(ClaimTypes.Email,          service.Email),
                 new Claim(ClaimTypes.Name,           service.Name),
-                new Claim(ClaimTypes.Role,           service.Role.ToString()),
+                new Claim(ClaimTypes.Role, service.Role == 2 ? "Admin" : "Member"),
                 new Claim("Permissions",             service.Permissions.ToString())
             };
 

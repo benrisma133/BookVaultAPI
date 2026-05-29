@@ -1,5 +1,7 @@
+using BookVault.Presentation.Authorization;
 using BookVault.Repository.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
@@ -35,9 +37,19 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 // ===============================
-// Authorization
+// Authorization Policies
 // ===============================
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("OwnerOrAdmin", policy =>
+        policy.Requirements.Add(new OwnerOrAdminRequirement()));
+});
+
+// ===============================
+// Authorization Handlers
+// ===============================
+// ✅ Register explicitly as the typed resource-based handler
+builder.Services.AddSingleton<AuthorizationHandler<OwnerOrAdminRequirement, int>, OwnerOrAdminHandler>();
 
 // ===============================
 // Controllers & Swagger
